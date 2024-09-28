@@ -1,0 +1,7 @@
+ckpt
+cifar_data
+mnist_data
+kmnist_data
+fmnist_data
+svhn_data
+__pycache__
