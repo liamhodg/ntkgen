@@ -12,6 +12,8 @@ from tqdm import tqdm
 import zarr
 import pickle
 
+import aioftp
+
 from models import *
 
 from functorch import make_functional_with_buffers, vmap, jacrev
@@ -55,6 +57,17 @@ transform_test = {
         transforms.ToTensor()]),
 }
 
+if os.path.isfile('ftp_login.txt'):
+    with open('ftp_login.txt') as f:
+        ftp_host, ftp_port, ftp_user, ftp_pass = f.read().split()
+else:
+    ftp_host = None
+
+async def upload_file(path):
+    if ftp_host is None: return
+    async with aioftp.Client.context(ftp_host, ftp_port, ftp_user, ftp_pass) as client:
+        pass
+
 class NTK(object):
 
     def __init__(self, net, dataset, dtype, chkpath, nparams, device):
@@ -72,8 +85,8 @@ class NTK(object):
     def fnet_single(self, params, buffers, x):
         return self.fnet(params, buffers, x.unsqueeze(0)).squeeze(0)
 
-    def get_jacobian(self, fnet_single, params, x):
-        # Compute J(x1)
+    def get_jacobian(self, params, x):
+        """Compute the Jacobian of the network for a minibatch x"""
         jac1 = vmap(jacrev(self.fnet_single), (None, None, 0))(params, self.buffers, x)
         jac1 = [j.detach().flatten(2).flatten(0,1) for j in jac1]
         return jac1
@@ -90,31 +103,24 @@ class NTK(object):
     def compute_ntk(self):
         """Compute the entire empirical NTK matrix. """
         # Get number of data points
-        N = 0
-        dataset = self.dataset
-        N = sum([x.shape[0] for (idx, x) in dataset])
-        print(N)
+        N = sum([x.shape[0] for (_, x) in self.dataset])
         total_num = N*self.num_classes
-        block_size = 5000
-        big = total_num > 10*block_size
         filepath = '{}/ntk_{}'.format(self.chkpath, self.dtype)
-        # if big:
-        #     ntk = zarr.open(filepath+'.zarr', dtype=self.dtype, mode='w', 
-        #                     shape=(total_num,total_num),chunks=(block_size,block_size))
-        # else:
-        ntk = np.memmap(filepath+'.bin', dtype=self.dtype, mode='w+', 
-                        shape=(total_num,total_num))
+        block_size = 5000
+        ntk = zarr.open(filepath+'.zarr', dtype=self.dtype, mode='w', 
+                        shape=(total_num,total_num),chunks=(block_size,block_size))
         nidx = 0
         nidy = 0
-        with tqdm(total=int(len(dataset)*(len(dataset)+1)/2)) as pbar:
-            for idx, x1 in dataset:
+        num_iters = int(len(self.dataset)*(len(self.dataset)+1)/2)
+        with tqdm(total=num_iters) as pbar:
+            for idx, x1 in self.dataset:
                 x1d = x1.to(self.device)
-                jac1 = self.get_jacobian(self.fnet_single, self.params, x1d)#.to(cpu)
-                for idy, x2 in dataset:
+                jac1 = self.get_jacobian(self.params, x1d)#.to(cpu)
+                for idy, x2 in self.dataset:
                     if idy < idx:
                         nidy += x2.shape[0]*self.num_classes
                         continue
-                    jac2 = self.get_jacobian(self.fnet_single, self.params, x2.to(self.device))#.to(cpu)
+                    jac2 = self.get_jacobian(self.params, x2.to(self.device))#.to(cpu)
                     J = self.empirical_ntk(jac1, jac2).to('cpu')
                     del jac2
                     incx = J.shape[0]
