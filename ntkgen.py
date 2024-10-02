@@ -57,16 +57,6 @@ transform_test = {
         transforms.ToTensor()]),
 }
 
-if os.path.isfile('ftp_login.txt'):
-    with open('ftp_login.txt') as f:
-        ftp_host, ftp_port, ftp_user, ftp_pass = f.read().split()
-else:
-    ftp_host = None
-
-async def upload_file(path):
-    if ftp_host is None: return
-    async with aioftp.Client.context(ftp_host, ftp_port, ftp_user, ftp_pass) as client:
-        pass
 
 class NTK(object):
 
@@ -329,4 +319,3 @@ class NTKGenerator(object):
             dataset = self.ntkset_f32
         ntk = NTK(self.net, dataset, dtype, self.chkpath, self.nparams, self.device)
         ntk.compute_ntk()
-

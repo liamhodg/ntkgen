@@ -37,7 +37,7 @@ for name in args.models:
         gen.prepare_dataset(args.dataset)
         gen.train(99.5)
         gen.compute_ntk('float16')
-        # gen.compute_ntk('float32')
+        gen.compute_ntk('float32')
         # WARNING: Computing NTK in double precision is EXTREMELY SLOW!! Consider commenting
         #          following line to avoid long computation times.
         # gen.compute_ntk('float64')
