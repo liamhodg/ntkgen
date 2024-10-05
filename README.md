@@ -1,9 +1,9 @@
 # Generating empirical Neural Tangent Kernel matrices
 This codebase computes the entire empirical Neural Tangent Kernel matrix for classical image classification datasets, 
 defined by
-$$
+```math
 G = (k(x_i, x_j))_{i,j=1}^n \in \mathbb{R}^{mn \times mn},\qquad \mbox{where } k(x, y) = Df(x) Df(y)^\top \in \mathbb{R}^{m \times m},
-$$
+```
 $n$ is the number of distinct elements in the dataset, $m$ is the number of model outputs, and $Df$ is the Jacobian of the network, mapping inputs to matrices of size $\mathbb{R}^{m \times d}$, where $d$ is the number of model parameters.
 
 Support is available for five image classification datasets (using only training data), all of which predict one of $m = 10$ classes:
