@@ -217,8 +217,6 @@ class NTKGenerator(object):
             net = Logistic()
         elif name == 'twolayer':
             net = TwoLayer()
-        elif name == 'twolayermini':
-            net = TwoLayerBottle()
         elif name == 'densenet121':
             net = DenseNet121()
         net = net.to(self.device)

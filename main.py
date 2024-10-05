@@ -11,7 +11,6 @@ parser.add_argument('--width',default=64, type=int, help='model width')
 parser.add_argument('--num_epochs', default=200, type=int, help='number of training epochs')
 parser.add_argument('--subsample', default=None, type=int, help='number in subsampled dataset')
 parser.add_argument('--repeats',default=1, type=int, help='number of times to train the model')
-parser.add_argument('--init',action="store_true",help='use initialized model')
 args = parser.parse_args()
 
 if not os.path.exists('ckpt'):
