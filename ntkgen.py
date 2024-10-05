@@ -11,6 +11,7 @@ import os
 from tqdm import tqdm
 import zarr
 import pickle
+import time
 
 import aioftp
 
@@ -97,13 +98,28 @@ class NTK(object):
         total_num = N*self.num_classes
         filepath = '{}/ntk_{}'.format(self.chkpath, self.dtype)
         block_size = 5000
-        ntk = zarr.open(filepath+'.zarr', dtype=self.dtype, mode='w', 
-                        shape=(total_num,total_num),chunks=(block_size,block_size))
+        #ntk = zarr.open(filepath+'.zarr', dtype=self.dtype, mode='w', 
+        #                shape=(total_num,total_num),chunks=(block_size,block_size))
+        if os.path.isfile(filepath+'.bin'):
+            with open(filepath+'.txt', 'r') as f:
+                idx_res = int(f.readlines()[0])
+            ntk = np.memmap(filepath+'.bin', dtype=self.dtype, mode='r+', \
+                        shape=(total_num,total_num))
+        else:
+            idx_res = 0
+            ntk = np.memmap(filepath+'.bin', dtype=self.dtype, mode='w+', \
+                            shape=(total_num,total_num))
+        print('Start:',idx_res)
         nidx = 0
         nidy = 0
         num_iters = int(len(self.dataset)*(len(self.dataset)+1)/2)
         with tqdm(total=num_iters) as pbar:
             for idx, x1 in self.dataset:
+                if idx < idx_res:
+                    time.sleep(1e-1) # To avoid issues with progress bar
+                    pbar.update(len(self.dataset)-idx)
+                    nidx += x1.shape[0]*self.num_classes
+                    continue
                 x1d = x1.to(self.device)
                 jac1 = self.get_jacobian(self.params, x1d)#.to(cpu)
                 for idy, x2 in self.dataset:
@@ -122,6 +138,8 @@ class NTK(object):
                     pbar.update(1)
                 nidx += incx
                 nidy = 0
+                with open(filepath+'.txt', 'w') as f:
+                    f.write(str(idx))
 
 
 class NTKGenerator(object):
