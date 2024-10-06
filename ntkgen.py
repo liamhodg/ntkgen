@@ -9,7 +9,6 @@ import torchvision.transforms as transforms
 
 import os
 from tqdm import tqdm
-import zarr
 import pickle
 import time
 
@@ -58,8 +57,17 @@ transform_test = {
         transforms.ToTensor()]),
 }
 
+def index_extract(dataloader, dtype, num_classes):
+    """dtype is one of torch.float16, torch.float32, torch.float64"""
+    lst = []
+    nidx = 0
+    for idx, (x,y) in enumerate(dataloader):
+        lst.append((idx, nidx, x.to(dtype)))
+        nidx += x.shape[0]*num_classes
+    return lst
 
-class NTK(object):
+
+class NTKComputer(object):
 
     def __init__(self, net, dataset, dtype, chkpath, nparams, device):
         self.dataset = dataset
@@ -72,6 +80,8 @@ class NTK(object):
         self.fnet, self.params, self.buffers = make_functional_with_buffers(net)
         self.nparams = nparams
         self.device = device
+        
+        self.compute_ntk()
     
     def fnet_single(self, params, buffers, x):
         return self.fnet(params, buffers, x.unsqueeze(0)).squeeze(0)
@@ -90,6 +100,23 @@ class NTK(object):
         result = torch.stack([torch.einsum('Nf,Mf->NM', j1, j2) for j1, j2 in zip(jac1, jac2)])
         result = (result/self.nparams**0.5).sum(0)
         return result
+        
+    def _compute_ntk_line(self, ntk, idx, nidx, x1, pbar):
+        """Compute one line of the upper triangular empirical NTK matrix. """
+        x1d = x1.to(self.device)
+        jac1 = self.get_jacobian(self.params, x1d)#.to(cpu)
+        for idy, nidy, x2 in self.dataset:
+            if idy < idx:
+                continue
+            jac2 = self.get_jacobian(self.params, x2.to(self.device))#.to(cpu)
+            J = self.empirical_ntk(jac1, jac2).to('cpu')
+            del jac2
+            incx = J.shape[0]
+            incy = J.shape[1]
+            ntk[nidx:nidx+incx,nidy:nidy+incy] = J
+            if idx != idy:
+                ntk[nidy:nidy+incy,nidx:nidx+incx] = J.T
+            pbar.update(1)
     
     def compute_ntk(self):
         """Compute the entire empirical NTK matrix. """
@@ -97,12 +124,12 @@ class NTK(object):
         N = sum([x.shape[0] for (_, x) in self.dataset])
         total_num = N*self.num_classes
         filepath = '{}/ntk_{}'.format(self.chkpath, self.dtype)
-        block_size = 5000
-        #ntk = zarr.open(filepath+'.zarr', dtype=self.dtype, mode='w', 
-        #                shape=(total_num,total_num),chunks=(block_size,block_size))
         if os.path.isfile(filepath+'.bin'):
             with open(filepath+'.txt', 'r') as f:
                 idx_res = int(f.readlines()[0])
+            if idx_res == self.dataset[-1][0]:
+                # Skip if computation is complete
+                return
             ntk = np.memmap(filepath+'.bin', dtype=self.dtype, mode='r+', \
                         shape=(total_num,total_num))
         else:
@@ -114,30 +141,12 @@ class NTK(object):
         nidy = 0
         num_iters = int(len(self.dataset)*(len(self.dataset)+1)/2)
         with tqdm(total=num_iters) as pbar:
-            for idx, x1 in self.dataset:
+            for idx, nidx, x1 in self.dataset:
                 if idx < idx_res:
                     time.sleep(1e-1) # To avoid issues with progress bar
                     pbar.update(len(self.dataset)-idx)
-                    nidx += x1.shape[0]*self.num_classes
                     continue
-                x1d = x1.to(self.device)
-                jac1 = self.get_jacobian(self.params, x1d)#.to(cpu)
-                for idy, x2 in self.dataset:
-                    if idy < idx:
-                        nidy += x2.shape[0]*self.num_classes
-                        continue
-                    jac2 = self.get_jacobian(self.params, x2.to(self.device))#.to(cpu)
-                    J = self.empirical_ntk(jac1, jac2).to('cpu')
-                    del jac2
-                    incx = J.shape[0]
-                    incy = J.shape[1]
-                    ntk[nidx:nidx+incx,nidy:nidy+incy] = J
-                    if idx != idy:
-                        ntk[nidy:nidy+incy,nidx:nidx+incx] = J.T
-                    nidy += incy
-                    pbar.update(1)
-                nidx += incx
-                nidy = 0
+                self._compute_ntk_line(ntk, idx, nidx, x1, pbar)
                 with open(filepath+'.txt', 'w') as f:
                     f.write(str(idx))
 
@@ -267,9 +276,12 @@ class NTKGenerator(object):
         self.ntkloader16 = torch.utils.data.DataLoader(self.ntkset, batch_size=self.ntk_bs*4, shuffle=False, pin_memory=True, num_workers=1)
         self.ntkloader32 = torch.utils.data.DataLoader(self.ntkset, batch_size=self.ntk_bs*2, shuffle=False, pin_memory=True, num_workers=1)
         self.ntkloader64 = torch.utils.data.DataLoader(self.ntkset, batch_size=self.ntk_bs, shuffle=False, pin_memory=True, num_workers=1)
-        self.ntkset_f16 = [(idx, x.to(torch.float16)) for idx, (x,y) in enumerate(self.ntkloader16)]
-        self.ntkset_f32 = [(idx, x.to(torch.float32)) for idx, (x,y) in enumerate(self.ntkloader32)]
-        self.ntkset_f64 = [(idx, x.to(torch.float64)) for idx, (x,y) in enumerate(self.ntkloader64)]
+        self.ntkset_f16 = index_extract(self.ntkloader16, torch.float16, self.num_classes)
+        self.ntkset_f32 = index_extract(self.ntkloader32, torch.float32, self.num_classes)
+        self.ntkset_f64 = index_extract(self.ntkloader64, torch.float64, self.num_classes)
+        #self.ntkset_f16 = [(idx, x.to(torch.float16)) for idx, (x,y) in enumerate(self.ntkloader16)]
+        #self.ntkset_f32 = [(idx, x.to(torch.float32)) for idx, (x,y) in enumerate(self.ntkloader32)]
+        #self.ntkset_f64 = [(idx, x.to(torch.float64)) for idx, (x,y) in enumerate(self.ntkloader64)]
     
     def train_epoch(self, epoch):
         print('\nEpoch: %d' % epoch)
@@ -324,6 +336,7 @@ class NTKGenerator(object):
         self.acc = state['acc']
 
     def compute_ntk(self, dtype):
+        """Compute the empirical NTK matrix for a given datatype"""
         if dtype == 'float16':
             net = self.net.to(self.device).to(torch.float16)
             dataset = self.ntkset_f16
@@ -333,5 +346,7 @@ class NTKGenerator(object):
         else:
             net = self.net.to(self.device).to(torch.float32)
             dataset = self.ntkset_f32
-        ntk = NTK(self.net, dataset, dtype, self.chkpath, self.nparams, self.device)
-        ntk.compute_ntk()
+        ntk = NTKComputer(self.net, dataset, dtype, 
+                          self.chkpath, self.nparams, self.device)
+        return ntk
+        
