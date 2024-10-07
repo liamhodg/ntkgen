@@ -12,7 +12,7 @@ from tqdm import tqdm
 import pickle
 import time
 
-import aioftp
+from ntk import NTK
 
 from models import *
 
@@ -137,8 +137,6 @@ class NTKComputer(object):
             ntk = np.memmap(filepath+'.bin', dtype=self.dtype, mode='w+', \
                             shape=(total_num,total_num))
         print('Start:',idx_res)
-        nidx = 0
-        nidy = 0
         num_iters = int(len(self.dataset)*(len(self.dataset)+1)/2)
         with tqdm(total=num_iters) as pbar:
             for idx, nidx, x1 in self.dataset:
@@ -149,6 +147,8 @@ class NTKComputer(object):
                 self._compute_ntk_line(ntk, idx, nidx, x1, pbar)
                 with open(filepath+'.txt', 'w') as f:
                     f.write(str(idx))
+        os.remove(filepath+'.txt')
+        self.ntk = NTK(self.chkpath, self.dtype)
 
 
 class NTKGenerator(object):
@@ -346,7 +346,8 @@ class NTKGenerator(object):
         else:
             net = self.net.to(self.device).to(torch.float32)
             dataset = self.ntkset_f32
-        ntk = NTKComputer(self.net, dataset, dtype, 
+        ntkcomp = NTKComputer(self.net, dataset, dtype, 
                           self.chkpath, self.nparams, self.device)
-        return ntk
+        ntkcomp.ntk.to_zarr()
+        return ntkcomp.ntk
         
