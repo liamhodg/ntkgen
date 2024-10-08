@@ -47,6 +47,8 @@ class NTK(object):
             i1 = idx*block_size
             i2 = (idx+1)*block_size
             ntk_zarr[i1:i2,i1:] = self.ntk[i1:i2,i1:]
+        del(self.ntk)
+        self.ntk = ntk_zarr
         os.remove(self.ntkpath+'.bin')
     
     def __getitem__(self, key):

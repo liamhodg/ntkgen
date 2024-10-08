@@ -121,7 +121,7 @@ class NTKComputer(object):
     def compute_ntk(self):
         """Compute the entire empirical NTK matrix. """
         # Get number of data points
-        N = sum([x.shape[0] for (_, x) in self.dataset])
+        N = sum([x.shape[0] for (_, _, x) in self.dataset])
         total_num = N*self.num_classes
         filepath = '{}/ntk_{}'.format(self.chkpath, self.dtype)
         if os.path.isfile(filepath+'.bin'):
@@ -141,7 +141,7 @@ class NTKComputer(object):
         with tqdm(total=num_iters) as pbar:
             for idx, nidx, x1 in self.dataset:
                 if idx < idx_res:
-                    time.sleep(1e-1) # To avoid issues with progress bar
+                    time.sleep(1e-2) # To avoid issues with progress bar
                     pbar.update(len(self.dataset)-idx)
                     continue
                 self._compute_ntk_line(ntk, idx, nidx, x1, pbar)
@@ -177,13 +177,18 @@ class NTKGenerator(object):
         self.acc = 0
 
         # Compute largest possible batch sizes for each GPU
-        self.ntk_bs = []
+        self.ntk_bs16 = []
+        self.ntk_bs32 = []
+        self.ntk_bs64 = []
         jac_size = self.nparams * self.num_classes * 8 * 3
         for idx in range(torch.cuda.device_count()):
-            self.ntk_bs.append(int(torch.cuda.get_device_properties(idx).total_memory/jac_size))
-        print('ntk batch size:', self.ntk_bs)
-        if len(self.ntk_bs) == 1:
-            self.ntk_bs = self.ntk_bs[0]
+            self.ntk_bs64.append(int(torch.cuda.get_device_properties(idx).total_memory/jac_size))
+            self.ntk_bs32.append(int(2*torch.cuda.get_device_properties(idx).total_memory/jac_size))
+            self.ntk_bs16.append(int(4*torch.cuda.get_device_properties(idx).total_memory/jac_size))
+        self.ntk_bs16 = min(self.ntk_bs16)
+        self.ntk_bs32 = min(self.ntk_bs32)
+        self.ntk_bs64 = min(self.ntk_bs64)
+        print('ntk batch size:', self.ntk_bs16, self.ntk_bs32, self.ntk_bs64)
 
         # Load net if file exists
         self.load()
@@ -273,9 +278,9 @@ class NTKGenerator(object):
             torch.save(self.ntkset, self.chkpath + '/ntkset.pt')
         print('    sample size:', len(self.trainset))
         print('ntk sample size:', len(self.ntkset))
-        self.ntkloader16 = torch.utils.data.DataLoader(self.ntkset, batch_size=self.ntk_bs*4, shuffle=False, pin_memory=True, num_workers=1)
-        self.ntkloader32 = torch.utils.data.DataLoader(self.ntkset, batch_size=self.ntk_bs*2, shuffle=False, pin_memory=True, num_workers=1)
-        self.ntkloader64 = torch.utils.data.DataLoader(self.ntkset, batch_size=self.ntk_bs, shuffle=False, pin_memory=True, num_workers=1)
+        self.ntkloader16 = torch.utils.data.DataLoader(self.ntkset, batch_size=self.ntk_bs16, shuffle=False, pin_memory=True, num_workers=1)
+        self.ntkloader32 = torch.utils.data.DataLoader(self.ntkset, batch_size=self.ntk_bs32, shuffle=False, pin_memory=True, num_workers=1)
+        self.ntkloader64 = torch.utils.data.DataLoader(self.ntkset, batch_size=self.ntk_bs64, shuffle=False, pin_memory=True, num_workers=1)
         self.ntkset_f16 = index_extract(self.ntkloader16, torch.float16, self.num_classes)
         self.ntkset_f32 = index_extract(self.ntkloader32, torch.float32, self.num_classes)
         self.ntkset_f64 = index_extract(self.ntkloader64, torch.float64, self.num_classes)
