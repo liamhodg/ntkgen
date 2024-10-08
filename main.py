@@ -35,8 +35,10 @@ for name in args.models:
         gen = NTKGenerator(name, chkpath, args)
         gen.prepare_dataset(args.dataset)
         gen.train(99.5)
-        gen.compute_ntk('float16')
-        gen.compute_ntk('float32')
+        if not os.path.isdir(chkpath+'/ntk_float16.zarr'):
+            gen.compute_ntk('float16')
+        if not os.path.isdir(chkpath+'/ntk_float32.zarr'):
+            gen.compute_ntk('float32')
         # WARNING: Computing NTK in double precision is EXTREMELY SLOW!! Consider commenting
         #          following line to avoid long computation times.
         # gen.compute_ntk('float64')

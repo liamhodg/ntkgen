@@ -8,15 +8,21 @@ class NTK(object):
 
     def __init__(self, chkpath, dtype):
         self.dtype = dtype
-        self.dataset = self.name.split('_')[0]
         self.chkpath = chkpath
+        self.name = chkpath.split('/')[-1]
+        self.dataset = self.name.split('_')[0]
         self.ntkpath = '{}/ntk_{}'.format(self.chkpath, self.dtype)
-        if self.dataset == 'cifar':
-            self.total_num = 50000*10
-        elif self.dataset == 'svhn':
-            self.total_num = 73257*10
+        self.subsample = self.name.split('s')[-1]
+        if self.subsample == 'F':
+            if self.dataset == 'cifar':
+                self.subsample = 50000
+            elif self.dataset == 'svhn':
+                self.subsample = 73257
+            else:
+                self.subsample = 60000
         else:
-            self.total_num = 60000*10
+            self.subsample = int(self.subsample)
+        self.total_num = self.subsample * 10
         self.ntk_load()
 
     def ntk_load(self):
