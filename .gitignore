@@ -6,3 +6,4 @@ fmnist_data
 svhn_data
 ftp_login.txt
 __pycache__
+memdet.py

@@ -321,8 +321,9 @@ class NTKGenerator(object):
             for epoch in range(0, self.args.num_epochs):
                 acc = self.train_epoch(epoch)
                 if acc > percent/100:
-                    self.save(acc)
-                    return
+                    break
+            self.save(acc)
+            
 
     def save(self, acc):
         """Save the trained network to a checkpoint file on disk."""
