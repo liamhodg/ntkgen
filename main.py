@@ -28,7 +28,7 @@ def main():
                 subsample = 'F'
             else:
                 subsample = args.subsample
-            pathname = '{}_{}_{}_bs{}_w{}_s{}'.format(args.dataset,name,rep,args.bs, args.width, subsample)
+            pathname = '{}_{}_bs{}_w{}_s{}_{}'.format(args.dataset,name,args.bs, args.width, subsample, str(rep).zfill(2))
             chkpath = 'ckpt/{}'.format(pathname)
             print('Model: {}'.format(pathname))
 
@@ -38,8 +38,9 @@ def main():
 
             # Copy data from previous repeats
             if rep > 0 and _REP_COPY_DATA:
-                chkpath0 = 'ckpt/{}_{}_0_bs{}_w{}_s{}'.format(args.dataset,name,args.bs,args.width,subsample)
+                chkpath0 = 'ckpt/{}_{}_bs{}_w{}_s{}_00'.format(args.dataset,name,args.bs,args.width,subsample)
                 shutil.copyfile(chkpath0+'/ntkset.pt',chkpath+'/ntkset.pt')
+                print('Copied dataset')
                 
             # Prepare the dataset for training
             gen = NTKGenerator(name, chkpath, args)
