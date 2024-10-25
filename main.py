@@ -1,6 +1,10 @@
 import argparse
 import os
+import shutil
 from ntkgen import NTKGenerator
+
+# Determine whether repeats should reuse data from previous iterations. True by default. 
+_REP_COPY_DATA = True
 
 def main():
     parser = argparse.ArgumentParser(description='PyTorch Model Training')
@@ -31,6 +35,11 @@ def main():
             # Check if the directory already exists
             if not os.path.exists(chkpath):
                 os.makedirs(chkpath)
+
+            # Copy data from previous repeats
+            if rep > 0 and _REP_COPY_DATA:
+                chkpath0 = 'ckpt/{}_{}_0_bs{}_w{}_s{}'.format(args.dataset,name,args.bs,args.width,subsample)
+                shutil.copyfile(chkpath0+'/ntkset.pt',chkpath+'/ntkset.pt')
                 
             # Prepare the dataset for training
             gen = NTKGenerator(name, chkpath, args)
