@@ -12,7 +12,7 @@ class NTK(object):
         self.name = chkpath.split('/')[-1]
         self.dataset = self.name.split('_')[0]
         self.ntkpath = '{}/ntk_{}'.format(self.chkpath, self.dtype)
-        self.subsample = self.name.split('s')[-1]
+        self.subsample = self.name.split('s')[-1].split('_')[0]
         if self.subsample == 'F':
             if self.dataset == 'cifar':
                 self.subsample = 50000

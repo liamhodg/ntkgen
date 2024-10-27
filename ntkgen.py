@@ -317,7 +317,7 @@ class NTKGenerator(object):
         defaults to 99.5."""
         if percent >= 100:
             percent = 100
-        if self.acc < percent/100:
+        if self.acc == 0:
             for epoch in range(0, self.args.num_epochs):
                 acc = self.train_epoch(epoch)
                 if acc > percent/100:

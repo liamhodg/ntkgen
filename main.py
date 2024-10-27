@@ -35,6 +35,7 @@ def main():
             # Check if the directory already exists
             if not os.path.exists(chkpath):
                 os.makedirs(chkpath)
+            print('Checkpoint:', chkpath)
 
             # Copy data from previous repeats
             if rep > 0 and _REP_COPY_DATA:
