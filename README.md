@@ -18,10 +18,10 @@ Note that the complete empirical NTK matrix is an **enormous dense matrix**, and
 | Dataset  | float16 | float32 | float64 |
 |----------|---------|---------|---------|
 | CIFAR-10 | 500 GiB | 1.0 TiB | 2.0 TiB |
-| MNIST    | 600 GiB | 1.2 TiB | 2.4 TiB |
-| KMNIST   | 600 GiB | 1.2 TiB | 2.4 TiB |
-| FMNIST   | 600 GiB | 1.2 TiB | 2.4 TiB |
-| SVHN     | 733 GiB | 1.5 TiB | 3.0 TiB |
+| MNIST    | 720 GiB | 1.5 TiB | 2.9 TiB |
+| KMNIST   | 720 GiB | 1.5 TiB | 2.9 TiB |
+| FMNIST   | 720 GiB | 1.5 TiB | 2.9 TiB |
+| SVHN     | 1.1 TiB | 2.2 TiB | 4.3 TiB |
 
 This code is designed to run even on desktop-class GPUs for smaller ResNets (e.g. ResNet9, ResNet18). Larger models will require significantly more VRAM.
 

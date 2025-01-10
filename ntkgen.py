@@ -124,7 +124,7 @@ class NTKComputer(object):
         N = sum([x.shape[0] for (_, _, x) in self.dataset])
         total_num = N*self.num_classes
         filepath = '{}/ntk_{}'.format(self.chkpath, self.dtype)
-        if os.path.isfile(filepath+'.bin'):
+        if os.path.isfile(filepath+'.txt'):
             with open(filepath+'.txt', 'r') as f:
                 idx_res = int(f.readlines()[0])
             if idx_res == self.dataset[-1][0]:
@@ -147,8 +147,8 @@ class NTKComputer(object):
                 self._compute_ntk_line(ntk, idx, nidx, x1, pbar)
                 with open(filepath+'.txt', 'w') as f:
                     f.write(str(idx))
-        os.remove(filepath+'.txt')
         self.ntk = NTK(self.chkpath, self.dtype)
+        os.remove(filepath+'.txt')
 
 
 class NTKGenerator(object):
@@ -180,7 +180,9 @@ class NTKGenerator(object):
         self.ntk_bs16 = []
         self.ntk_bs32 = []
         self.ntk_bs64 = []
-        jac_size = self.nparams * self.num_classes * 8 * 3
+        jac_size = self.nparams * self.num_classes * 8 * 4
+        if name == 'mobilenetv2':
+            jac_size += self.nparams * self.num_classes * 8 * 2
         for idx in range(torch.cuda.device_count()):
             self.ntk_bs64.append(int(torch.cuda.get_device_properties(idx).total_memory/jac_size))
             self.ntk_bs32.append(int(2*torch.cuda.get_device_properties(idx).total_memory/jac_size))
