@@ -35,12 +35,21 @@
 # =======
 
 import numpy
-import detkit
 import zarr
 from pprint import pprint
+import detkit
 import os
 import psutil
+import tqdm
 from ntk import NTK
+
+def block_diag(A, num_classes=10):
+    n = A.shape[0] // num_classes
+    m = num_classes
+    dimat = numpy.zeros(A.shape, dtype='float64')
+    for i in range(n):
+        dimat[i*m:(i+1)*m,i*m:(i+1)*m] = A[i*m:(i+1)*m,i*m:(i+1)*m]
+    return dimat
 
 
 # ====
@@ -57,20 +66,7 @@ def main():
     # The base filename of the input file, without '.zarr' suffix. This name
     # together with '.npz' file extension will also be used for the output file
     # name.
-    dtypes = ['float16','float32','float64']
-
-    # Set available memory for MEMDET computation to 80% of available RAM
-    # mem_avail = int(psutil.virtual_memory().available * 0.8)
-
-    # Set machine to 32 GB of available RAM
-    mem_avail = '32GB'
-
-    # mixed precision: str {'float32', 'float64'} or None
-    # the precision at while the computations are performed.
-    # It is recommended to set a precision higher than the dtype of the input
-    # If None, the precision of the input data is used.
-    mixed_precision = 'float64'
-
+    dtypes = ['float64']
     # scratch_dir: str or None
     # The directory where memdet will create temporary scratch file. If None,
     # the default OS's tmp directorty will be used. In Linux, this is '/tmp'.
@@ -92,10 +88,12 @@ def main():
                 # No generated NTK found; move on
                 print('Problem with', chkpath, dtype)
                 continue
+            if ntk.shape[0] > 5000*10:
+                continue
 
             # Get full-path filename of the input file
             filename = ntk.ntkpath + '.zarr'
-            outfile = ntk.ntkpath + '_logdet.npz'
+            outfile = ntk.ntkpath + '_block.npz'
             if os.path.isfile(outfile):
                 continue
 
@@ -103,38 +101,26 @@ def main():
 
             # Get file object
             z = zarr.open(filename, 'r')
+            z_bd = block_diag(numpy.array(z))
 
             # Compute log-determinant (ld) and sign (sign) of the full matrix, as well
             # as the diagonals of U in the LU decomposition.
             try:
                 ld, sign, diag, perm, info = detkit.memdet(
-                        z, max_mem=mem_avail, assume='sym', triangle='u',
-                        overwrite=False, mixed_precision=mixed_precision, parallel_io=None,
+                        z_bd, max_mem='32GB', assume='sym', triangle='u',
+                        overwrite=False, mixed_precision='float64', parallel_io=None,
                         scratch_dir=scratch_dir, return_info=True, flops=True,
                         verbose=True)
             except ValueError:
                 print('Computation failed (likely overflow)')
                 continue
 
-            # -------------
-            # Print results
-            # -------------
-
-            # Check the log-determinant (ld) should be the same as the sum of log of
-            # all diagonals (diag)
-            print(ld)
-            print(numpy.sum(numpy.log(numpy.abs(diag))))
-            print(sign)
-
-            # Print computation information
-            pprint(info)
-
             # ------------
             # Write output
             # ------------
 
             # Save diag and info to file
-            numpy.savez(ntk.ntkpath + '_logdet.npz', diag=diag, info=info, perm=perm)
+            numpy.savez(outfile, ld=ld, sign=sign, diag=diag, perm=perm, info=info)
 
 
 # ===========

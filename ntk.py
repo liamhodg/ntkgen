@@ -23,6 +23,7 @@ class NTK(object):
         else:
             self.subsample = int(self.subsample)
         self.total_num = self.subsample * 10
+        self.shape = (self.total_num, self.total_num)
         self.ntk_load()
 
     def ntk_load(self):
@@ -36,6 +37,7 @@ class NTK(object):
                 return
         self.ntk = np.memmap(self.ntkpath+'.bin', dtype=self.dtype, mode='r', \
                 shape=(self.total_num,self.total_num))
+        self.shape = (self.total_num, self.total_num)
         self.is_memmap = True
     
     def to_zarr(self):
