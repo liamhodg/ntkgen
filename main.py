@@ -16,6 +16,8 @@ def main():
     parser.add_argument('--num_epochs', default=200, type=int, help='number of training epochs')
     parser.add_argument('--subsample', default=None, type=int, help='number in subsampled dataset')
     parser.add_argument('--repeats',default=1, type=int, help='number of times to train the model')
+    parser.add_argument('--skip16', dest='skip16', action='store_true')
+    parser.set_defaults(skip16=False)
     args = parser.parse_args()
 
     if not os.path.exists('ckpt'):
@@ -47,7 +49,7 @@ def main():
             gen = NTKGenerator(name, chkpath, args)
             gen.prepare_dataset(args.dataset)
             gen.train(99.5)
-            if not os.path.isdir(chkpath+'/ntk_float16.zarr'):
+            if not os.path.isdir(chkpath+'/ntk_float16.zarr') and not args.skip16:
                 gen.compute_ntk('float16')
             if not os.path.isdir(chkpath+'/ntk_float32.zarr'):
                 gen.compute_ntk('float32')
