@@ -97,7 +97,8 @@ class NTKComputer(object):
         J(x1) @ J(x2).T / sqrt(d), where d is the number of model parameters. 
         
         The sqrt(d) normalization is performed to avoid overflow in the float16 case."""
-        result = torch.stack([torch.einsum('Nf,Mf->NM', j1, j2) for j1, j2 in zip(jac1, jac2)])
+        #result = torch.stack([torch.einsum('Nf,Mf->NM', j1, j2) for j1, j2 in zip(jac1, jac2)])
+        result = torch.stack([j1 @ j2.t() for j1, j2 in zip(jac1, jac2)])
         result = (result/self.nparams**0.5).sum(0)
         return result
         
