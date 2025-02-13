@@ -181,7 +181,7 @@ class NTKGenerator(object):
         self.ntk_bs16 = []
         self.ntk_bs32 = []
         self.ntk_bs64 = []
-        jac_size = self.nparams * self.num_classes * 8 * 3
+        jac_size = self.nparams * self.num_classes * 8 * 3.2
         if name == 'mobilenetv2':
             jac_size += self.nparams * self.num_classes * 8 * 2
         for idx in range(torch.cuda.device_count()):
