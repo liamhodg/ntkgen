@@ -191,6 +191,15 @@ class NTKGenerator(object):
         self.ntk_bs16 = min(self.ntk_bs16)
         self.ntk_bs32 = min(self.ntk_bs32)
         self.ntk_bs64 = min(self.ntk_bs64)
+        if self.ntk_bs64 < 1:
+            self.ntk_bs64 = 1
+            print('Warning: not enough VRAM for 64-bit')
+            if self.ntk_bs32 < 1:
+                self.ntk_bs32 = 1
+                print('...or 32-bit')
+                if self.ntk_bs16 < 1:
+                    self.ntk_bs16 = 1
+                    print('...or 16-bit')
         print('ntk batch size:', self.ntk_bs16, self.ntk_bs32, self.ntk_bs64)
 
         # Load net if file exists
