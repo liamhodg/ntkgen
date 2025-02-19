@@ -17,7 +17,9 @@ def main():
     parser.add_argument('--subsample', default=None, type=int, help='number in subsampled dataset')
     parser.add_argument('--repeats',default=1, type=int, help='number of times to train the model')
     parser.add_argument('--skip16', dest='skip16', action='store_true')
+    parser.add_argument('--test64', dest='test64', action='store_true')
     parser.set_defaults(skip16=False)
+    parser.set_defaults(test64=False)
     args = parser.parse_args()
 
     if not os.path.exists('ckpt'):
@@ -49,14 +51,14 @@ def main():
             gen = NTKGenerator(name, chkpath, args)
             gen.prepare_dataset(args.dataset)
             gen.train(99.5)
-            if not os.path.isdir(chkpath+'/ntk_float16.zarr') and not args.skip16:
+            if not os.path.isdir(chkpath+'/ntk_float16.zarr') and not args.skip16 and not args.test64:
                 gen.compute_ntk('float16')
-            if not os.path.isdir(chkpath+'/ntk_float32.zarr'):
+            if not os.path.isdir(chkpath+'/ntk_float32.zarr') and not args.test64:
                 gen.compute_ntk('float32')
             # WARNING: Computing NTK in double precision is EXTREMELY SLOW!! Consider commenting
             #          following line to avoid long computation times.
             if not os.path.isdir(chkpath+'/ntk_float64.zarr'):
-                if type(subsample) == type(1) and subsample <= 2500:
+                if args.test64 or (type(subsample) == type(1) and subsample <= 2500):
                     gen.compute_ntk('float64')
         
 # ===========
